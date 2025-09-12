@@ -1,0 +1,765 @@
+openapi: 3.0.3
+info:
+  title: Mental Health Platform API
+  description: Comprehensive backend API for a mental health and content platform
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@mentalhealthplatform.com
+
+servers:
+  - url: http://localhost:8000/api
+    description: Development server
+  - url: https://api.mentalhealthplatform.com/api
+    description: Production server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      
+  schemas:
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        contact:
+          type: string
+        age:
+          type: integer
+        role:
+          type: string
+          enum: [user, admin, superadmin]
+        isEmailVerified:
+          type: boolean
+        isContactVerified:
+          type: boolean
+        isActive:
+          type: boolean
+        profile:
+          type: object
+          properties:
+            avatar:
+              type: string
+            bio:
+              type: string
+            interests:
+              type: array
+              items:
+                type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Post:
+      type: object
+      properties:
+        _id:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        author:
+          $ref: '#/components/schemas/User'
+        moodTag:
+          type: string
+          enum: [Bad, NotGreat, OK, Happy, Joyful]
+        isAnonymous:
+          type: boolean
+        likesCount:
+          type: integer
+        unlikesCount:
+          type: integer
+        commentsCount:
+          type: integer
+        visibility:
+          type: string
+          enum: [public, private, friends]
+        createdAt:
+          type: string
+          format: date-time
+
+    MoodLog:
+      type: object
+      properties:
+        _id:
+          type: string
+        user:
+          type: string
+        emoji:
+          type: string
+        scale:
+          type: integer
+          minimum: 1
+          maximum: 5
+        emotions:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+        triggers:
+          type: array
+          items:
+            type: string
+        logDate:
+          type: string
+          format: date-time
+
+    Psychologist:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        degree:
+          type: string
+        experience:
+          type: integer
+        about:
+          type: string
+        rating:
+          type: number
+        specializations:
+          type: array
+          items:
+            type: string
+        schedule:
+          type: array
+          items:
+            type: object
+            properties:
+              day:
+                type: string
+              startTime:
+                type: string
+              endTime:
+                type: string
+              isAvailable:
+                type: boolean
+
+    Appointment:
+      type: object
+      properties:
+        _id:
+          type: string
+        user:
+          type: string
+        psychologist:
+          $ref: '#/components/schemas/Psychologist'
+        dateTime:
+          type: string
+          format: date-time
+        duration:
+          type: integer
+        status:
+          type: string
+          enum: [scheduled, completed, cancelled, no-show]
+        notes:
+          type: string
+
+    Poll:
+      type: object
+      properties:
+        _id:
+          type: string
+        question:
+          type: string
+        options:
+          type: array
+          items:
+            type: object
+            properties:
+              text:
+                type: string
+              votes:
+                type: array
+        creator:
+          $ref: '#/components/schemas/User'
+        totalVotes:
+          type: integer
+        expiresAt:
+          type: string
+          format: date-time
+
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        data:
+          type: object
+          nullable: true
+          example: null
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+        timestamp:
+          type: string
+          format: date-time
+
+paths:
+  /auth/signup:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, contact, age]
+              properties:
+                name:
+                  type: string
+                  example: "John Doe"
+                email:
+                  type: string
+                  format: email
+                  example: "john@example.com"
+                password:
+                  type: string
+                  format: password
+                  example: "Password123!"
+                contact:
+                  type: string
+                  example: "+1234567890"
+                age:
+                  type: integer
+                  minimum: 13
+                  example: 25
+      responses:
+        201:
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        400:
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        200:
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          token:
+                            type: string
+                          user:
+                            $ref: '#/components/schemas/User'
+
+  /auth/verify-contact-otp:
+    post:
+      tags: [Auth]
+      summary: Verify contact OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [otp]
+              properties:
+                otp:
+                  type: string
+                  example: "123456"
+                tempToken:
+                  type: string
+                  example: "temp-token-uuid"
+      responses:
+        200:
+          description: Contact verified successfully
+        400:
+          description: Invalid or expired OTP
+
+  /auth/verify-email-otp:
+    post:
+      tags: [Auth]
+      summary: Verify email OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [otp]
+              properties:
+                otp:
+                  type: string
+                  example: "123456"
+                tempToken:
+                  type: string
+                  example: "temp-token-uuid"
+      responses:
+        200:
+          description: Email verified successfully
+        400:
+          description: Invalid or expired OTP
+
+  /auth/resend-otp:
+    post:
+      tags: [Auth]
+      summary: Resend OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                type:
+                  type: string
+                  enum: [email, contact]
+                  example: "email"
+                tempToken:
+                  type: string
+                  example: "temp-token-uuid"
+      responses:
+        200:
+          description: OTP resent successfully
+        400:
+          description: Invalid request
+
+  /auth/parent/init:
+    post:
+      tags: [Auth]
+      summary: Initialize parent consent verification
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [parentEmail, parentContact]
+              properties:
+                parentEmail:
+                  type: string
+                  format: email
+                  example: "parent@example.com"
+                parentContact:
+                  type: string
+                  example: "+1234567890"
+      responses:
+        200:
+          description: Parent verification initiated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: "Verification codes sent to parent email and contact number"
+                          parentEmail:
+                            type: string
+                          parentContact:
+                            type: string
+        400:
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/parent/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Verify parent OTPs
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailOtp:
+                  type: string
+                  example: "123456"
+                contactOtp:
+                  type: string
+                  example: "123456"
+      responses:
+        200:
+          description: Parent verification successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          isFullyVerified:
+                            type: boolean
+                          emailVerified:
+                            type: boolean
+                          contactVerified:
+                            type: boolean
+                          message:
+                            type: string
+        400:
+          description: Invalid OTP or verification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /posts:
+    get:
+      tags: [Posts]
+      summary: Get all posts
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: moodTag
+          in: query
+          schema:
+            type: string
+            enum: [Bad, NotGreat, OK, Happy, Joyful]
+      responses:
+        200:
+          description: Posts retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          posts:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Post'
+
+    post:
+      tags: [Posts]
+      summary: Create a new post
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, content]
+              properties:
+                title:
+                  type: string
+                content:
+                  type: string
+                moodTag:
+                  type: string
+                  enum: [Bad, NotGreat, OK, Happy, Joyful]
+                isAnonymous:
+                  type: boolean
+                  default: false
+      responses:
+        201:
+          description: Post created successfully
+        400:
+          description: Validation error
+
+  /moods/log:
+    post:
+      tags: [Moods]
+      summary: Log mood entry
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [emoji, scale]
+              properties:
+                emoji:
+                  type: string
+                  example: "😊"
+                scale:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                emotions:
+                  type: array
+                  items:
+                    type: string
+                notes:
+                  type: string
+                triggers:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        201:
+          description: Mood logged successfully
+        400:
+          description: Validation error
+
+  /feelings/today:
+    post:
+      tags: [Feelings]
+      summary: Submit today's feeling
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [feeling, emoji]
+              properties:
+                feeling:
+                  type: string
+                  enum: [excellent, good, okay, not-great, unsatisfied]
+                emoji:
+                  type: string
+                notes:
+                  type: string
+      responses:
+        201:
+          description: Feeling submitted successfully
+
+  /psychologists:
+    get:
+      tags: [Psychologists]
+      summary: Get all psychologists
+      parameters:
+        - name: specialization
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        200:
+          description: Psychologists retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          psychologists:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Psychologist'
+
+  /appointments:
+    post:
+      tags: [Appointments]
+      summary: Book appointment
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [psychologistId, dateTime]
+              properties:
+                psychologistId:
+                  type: string
+                dateTime:
+                  type: string
+                  format: date-time
+                notes:
+                  type: string
+      responses:
+        201:
+          description: Appointment booked successfully
+        409:
+          description: Time slot not available
+
+  /analytics/mood:
+    get:
+      tags: [Analytics]
+      summary: Get mood analytics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: timeframe
+          in: query
+          schema:
+            type: string
+            enum: [7d, 30d, 90d]
+            default: 30d
+      responses:
+        200:
+          description: Analytics retrieved successfully
+
+  /chatbot/chat:
+    post:
+      tags: [Chatbot]
+      summary: Chat with AI therapist
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+                sessionId:
+                  type: string
+      responses:
+        200:
+          description: Chat response generated
+
+  /content:
+    get:
+      tags: [Content]
+      summary: Browse content library
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [music, meditation, article, podcast, video, reel, note, journal]
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        200:
+          description: Content retrieved successfully
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Auth
+    description: Authentication and authorization
+  - name: Users
+    description: User management
+  - name: Posts
+    description: Social posts and comments
+  - name: Polls
+    description: Community polls
+  - name: Psychologists
+    description: Psychologist profiles and management
+  - name: Appointments
+    description: Appointment booking and management
+  - name: Moods
+    description: Mood logging and tracking
+  - name: Feelings
+    description: Daily feeling submissions
+  - name: Analytics
+    description: Mood analytics and insights
+  - name: Chatbot
+    description: AI therapist chatbot
+  - name: Content
+    description: Content library management
+  - name: Questionnaires
+    description: Mental health assessments
