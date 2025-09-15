@@ -8,7 +8,8 @@ info:
     email: support@mentalhealthplatform.com
 
 servers:
-  - url: http://localhost:8000/api
+  # - url: http://localhost:8000/api
+  - url: https://backend-2mh6.onrender.com/api
     description: Development server
   - url: https://api.mentalhealthplatform.com/api
     description: Production server
